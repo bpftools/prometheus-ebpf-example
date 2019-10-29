@@ -1,0 +1,53 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bpf-stuff
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: bpf-program
+  namespace: bpf-stuff
+  labels:
+    app: bpf-program
+spec:
+  selector:
+    matchLabels:
+      name: bpf-program
+  template:
+    metadata:
+      labels:
+        name: bpf-program
+    spec:
+      containers:
+      - name: bpf-program
+        image: quay.io/fntlnz/bpf-program:latest
+        securityContext:
+        - privileged: true
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: sys
+          mountPath: /sys
+          readOnly: true
+        - name: headers
+          mountPath: /usr/src
+          readOnly: true
+        - name: modules
+          mountPath: /lib/modules
+          readOnly: true
+      volumes:
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: headers
+        hostPath:
+          path: /usr/src
+      - name: modules
+        hostPath:
+          path: /lib/modules
