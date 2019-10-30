@@ -38,13 +38,18 @@ spec:
       containers:
         - name: bpf-program
           image: docker.io/bpftools/prometheus-ebpf-example:latest
+          imagePullPolicy: Always
           env:
-            - name: NODENAME
-              value: spec.nodeName
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: URETPROBE_BINARY
+              value: /host/usr/bin/bash
           ports:
             - containerPort: 8080
           securityContext:
-            - privileged: true
+            privileged: true
           resources:
             limits:
               memory: 200Mi
@@ -61,6 +66,9 @@ spec:
             - name: modules
               mountPath: /lib/modules
               readOnly: true
+            - name: bin
+              mountPath: /host/usr/bin
+              readOnly: true
       volumes:
         - name: sys
           hostPath:
@@ -71,3 +79,6 @@ spec:
         - name: modules
           hostPath:
             path: /lib/modules
+        - name: bin
+          hostPath:
+            path: /usr/bin

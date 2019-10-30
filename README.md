@@ -22,8 +22,11 @@ In this case, you will need to install bcc-dev first, instructions [here](https:
 
 ## Run
 
+Remember: you might have libreadline somewhere else. This also can work by passing the bash binary directly. If you pass the bash binary or change
+the location you can use the environment variable `URETPROBE_BINARY` to tell the program where to load from.
+
 ```bash
-docker run -e NODENAME=$(hostname) -v /sys:/sys:ro -v /lib/modules:/lib/modules:ro --privileged -v /:/host:ro -p 8080:8080 -it docker.io/bpftools/prometheus-ebpf-example:latest
+docker run -e NODENAME=$(hostname) -v /sys:/sys:ro -v /lib/modules:/lib/modules:ro --privileged -v /lib/libreadline.so:/host/lib/libreadline.so:ro -p 8080:8080 -it docker.io/bpftools/prometheus-ebpf-example:latest
 ```
 
 You can test if this works by opening a `bash` shell and doing some commands, then you can curl
@@ -52,6 +55,11 @@ Notice how the curl command itself was recorded!
 
 ## Run on Kubernetes as a Daemonset
 
+Remember: you might have libreadline somewhere else. This also can work by passing the bash binary directly. If you pass the bash binary or change
+the location you can use the environment variable `URETPROBE_BINARY` to tell the program where to load from.
+In this case, the `daemonset.yaml` uses the `URETPROBE_BINARY` because in my testing I was using [kind](https://github.com/kubernetes-sigs/kind) and it worked well in that way.
+
+
 ```bash
 kubectl apply -f daemonset.yaml
 ```
@@ -60,6 +68,17 @@ This will create:
 - A namespace called bpf-stuff
 - A daemonset called bpf-program
 - A service exposing port 8080 called bpf-program
+
+
+At this point you can port-forward your daemonset or the service or even one of the pods
+and curl the endpoint to see if it's collecting anything:
+
+To do the port forwarding for the daemonset:
+
+```bash
+kubectl port-forward daemonset/bpf-program -n bpf-stuff 8080:8080
+```
+
 
 ## Scrape with Prometheus
 
