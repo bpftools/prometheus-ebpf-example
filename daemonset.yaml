@@ -4,6 +4,21 @@ kind: Namespace
 metadata:
   name: bpf-stuff
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bpf-program
+  namespace: bpf-stuff
+  labels:
+    app: bpf-program
+spec:
+  ports:
+    - port: 8080
+      name: metrics
+  clusterIP: None
+  selector:
+    app: bpf-program
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -21,33 +36,38 @@ spec:
         name: bpf-program
     spec:
       containers:
-      - name: bpf-program
-        image: quay.io/fntlnz/bpf-program:latest
-        securityContext:
-        - privileged: true
-        resources:
-          limits:
-            memory: 200Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
-        volumeMounts:
-        - name: sys
-          mountPath: /sys
-          readOnly: true
-        - name: headers
-          mountPath: /usr/src
-          readOnly: true
-        - name: modules
-          mountPath: /lib/modules
-          readOnly: true
+        - name: bpf-program
+          image: docker.io/bpftools/prometheus-ebpf-example:latest
+          env:
+            - name: NODENAME
+              value: spec.nodeName
+          ports:
+            - containerPort: 8080
+          securityContext:
+            - privileged: true
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: headers
+              mountPath: /usr/src
+              readOnly: true
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
       volumes:
-      - name: sys
-        hostPath:
-          path: /sys
-      - name: headers
-        hostPath:
-          path: /usr/src
-      - name: modules
-        hostPath:
-          path: /lib/modules
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: headers
+          hostPath:
+            path: /usr/src
+        - name: modules
+          hostPath:
+            path: /lib/modules

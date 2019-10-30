@@ -1,3 +1,21 @@
+// Copyright 2017 Louis McCormack
+// Copyright 2019 Lorenzo Fontana (for the prometheus modifications)
+// This file was initially taken from the iovisor/gobpf repository
+// https://github.com/iovisor/gobpf/blob/master/examples/bcc/bash_readline/bash_readline.go
+// It was modified to expose the extracted metrics as a prometheus endpoint on port 8080
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -7,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 
 	bpf "github.com/iovisor/gobpf/bcc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -49,7 +68,7 @@ var (
 	readlineProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "commands_count",
 		Help: "The number of times a command is invoked via bash",
-	}, []string{"commands"})
+	}, []string{"command", "pid", "nodename"})
 )
 
 func main() {
@@ -57,7 +76,15 @@ func main() {
 	binaryName := os.Getenv("URETPROBE_BINARY")
 
 	// Get the current node hostname
-	// hostname := os.Getenv("HOSTNAME")
+	nodeName := os.Getenv("NODENAME")
+
+	if len(nodeName) == 0 {
+		nodeName = os.Getenv("HOSTNAME")
+	}
+
+	if len(nodeName) == 0 {
+		nodeName = "unknown"
+	}
 
 	if len(binaryName) == 0 {
 		binaryName = "/host/lib/libreadline.so"
@@ -115,13 +142,16 @@ func main() {
 			// Convert the C string to a Go string
 			comm := string(event.Str[:bytes.IndexByte(event.Str[:], 0)])
 
-			readlineProcessed.WithLabelValues(comm).Inc()
+			readlineProcessed.WithLabelValues(comm, strconv.Itoa(int(event.Pid)), nodeName).Inc()
 
 		}
 	}()
 
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
+		r := prometheus.NewRegistry()
+		r.MustRegister(readlineProcessed)
+		handler := promhttp.HandlerFor(r, promhttp.HandlerOpts{})
+		http.Handle("/metrics", handler)
 		err := http.ListenAndServe(":8080", nil)
 		if err != nil {
 			log.Fatalf("error starting the webserver: %v", err)
