@@ -9,4 +9,6 @@ COPY . /project
 WORKDIR /project
 RUN go build -o /bin/bpf-program
 
+RUN rm -rf /project
+
 ENTRYPOINT ["/bin/bpf-program"]
